@@ -1,4 +1,4 @@
-"""Общий роутер: /start, главное меню, fallback."""
+"""Общий роутер: /start, главное меню."""
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -95,6 +95,3 @@ async def noop(cq: CallbackQuery) -> None:
     await cq.answer()
 
 
-@router.message()
-async def fallback(message: Message) -> None:
-    await message.answer(texts.unknown)

@@ -24,7 +24,6 @@ async def cmd_start(message: Message, user, db_session) -> None:
         await db_session.commit()
         await message.answer(texts.admin_menu, reply_markup=admin_inline_menu())
     else:
-        # Считаем approved чеки для счётчика
         count = await db_session.execute(
             text("SELECT count(id) FROM receipts WHERE user_id = :uid AND status = 'approved'::receipt_status"),
             {"uid": user.id}
@@ -39,25 +38,22 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
     await message.answer(texts.cancel, reply_markup=seller_main_menu())
 
 
-# Убрано - обработка в submit.py
-
-
 @router.message(F.text.startswith("📋 Мои чеки"))
-async def menu_my_receipts -> None:
+async def menu_my_receipts(message: Message, user, db_session) -> None:
     from app.bot.handlers.seller.seller_other import show_my_receipts
-    await show_my_receipts(message, data)
+    await show_my_receipts(message, user, db_session)
 
 
 @router.message(F.text == "🏪 Рейтинг магазинов")
-async def menu_shops_ranking -> None:
+async def menu_shops_ranking(message: Message, db_session) -> None:
     from app.bot.handlers.seller.seller_other import show_shops_ranking
-    await show_shops_ranking(message, data)
+    await show_shops_ranking(message, db_session)
 
 
 @router.message(F.text == "🏆 Рейтинг продавцов")
-async def menu_sellers_ranking -> None:
+async def menu_sellers_ranking(message: Message, db_session) -> None:
     from app.bot.handlers.seller.seller_other import show_sellers_ranking
-    await show_sellers_ranking(message, data)
+    await show_sellers_ranking(message, db_session)
 
 
 @router.message(F.text == "🧪 Колба")
@@ -69,7 +65,7 @@ async def menu_kolba(message: Message) -> None:
 
 
 @router.message(F.text == "💬 Связаться с админом")
-async def menu_contact(message: Message, state) -> None:
+async def menu_contact(message: Message, state: FSMContext) -> None:
     from app.bot.handlers.seller.seller_other import start_contact
     await start_contact(message, state)
 
@@ -83,15 +79,13 @@ async def admin_panel(message: Message, user, db_session) -> None:
 
 
 @router.callback_query(F.data == "back_main")
-async def back_main -> None:
+async def back_main(cq: CallbackQuery, state: FSMContext, user, db_session) -> None:
     await state.clear()
     await cq.message.delete()
     from app.bot.handlers.seller.seller_other import send_main_menu
-    await send_main_menu(cq.message, data)
+    await send_main_menu(cq.message, user, db_session)
 
 
 @router.callback_query(F.data == "noop")
 async def noop(cq: CallbackQuery) -> None:
     await cq.answer()
-
-

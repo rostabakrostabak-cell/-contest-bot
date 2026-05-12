@@ -48,15 +48,14 @@ def _parse_amount(raw: str) -> Decimal | None:
 
 @router.message(F.text == "📋 Отправить чек")
 async def start_submit(message: Message, state: FSMContext, db_session, user) -> None:
-
-    if not await is_submissions_open(db):
+    if not await is_submissions_open(db_session):
         await message.answer(texts.submissions_closed)
         return
 
     await state.clear()
     await state.set_state(SubmitReceipt.pick_shop)
 
-    shops = (await db.execute(
+    shops = (await db_session.execute(
         select(Shop).where(Shop.is_active == True).order_by(Shop.name)
     )).scalars().all()
 
@@ -70,14 +69,11 @@ async def start_submit(message: Message, state: FSMContext, db_session, user) ->
 # ─── Выбор магазина ─────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("shop:"), SubmitReceipt.pick_shop)
-async def pick_shop -> None:
+async def pick_shop(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
     shop_id = int(cq.data.split(":")[1])
-    db = data["db_session"]
-    user: User = data["user"]
-
     await state.update_data(shop_id=shop_id)
 
-    sellers = (await db.execute(
+    sellers = (await db_session.execute(
         select(Seller)
         .where(Seller.shop_id == shop_id)
         .order_by(Seller.full_name)
@@ -86,7 +82,7 @@ async def pick_shop -> None:
     # Проверяем сохранённого продавца
     saved_seller = None
     if user.last_seller_id:
-        saved_seller = await db.get(Seller, user.last_seller_id)
+        saved_seller = await db_session.get(Seller, user.last_seller_id)
         if saved_seller and saved_seller.shop_id != shop_id:
             saved_seller = None
 
@@ -100,12 +96,9 @@ async def pick_shop -> None:
 # ─── Выбор ФИ (существующий) ─────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("sel:"), SubmitReceipt.pick_seller)
-async def pick_seller -> None:
+async def pick_seller(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
     seller_id = int(cq.data.split(":")[1])
-    db = data["db_session"]
-    user: User = data["user"]
-
-    seller: Seller = await db.get(Seller, seller_id)
+    seller: Seller = await db_session.get(Seller, seller_id)
     await state.update_data(
         seller_id=seller.id,
         seller_name=seller.full_name,
@@ -113,7 +106,7 @@ async def pick_seller -> None:
         category=seller.category.value,
     )
     user.last_seller_id = seller.id
-    await db.commit()
+    await db_session.commit()
 
     await state.set_state(SubmitReceipt.enter_amount)
     await cq.message.edit_reply_markup(reply_markup=None)
@@ -134,7 +127,7 @@ async def new_seller_start(cq: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.message(SubmitReceipt.enter_name)
-async def enter_name -> None:
+async def enter_name(message: Message, state: FSMContext, db_session) -> None:
     raw = message.text or ""
     if not NAME_RE.match(raw.strip()):
         await message.answer(texts.name_error)
@@ -143,10 +136,9 @@ async def enter_name -> None:
     name = _normalize_name(raw)
     sdata = await state.get_data()
     shop_id = sdata["new_seller_shop_id"]
-    db = data["db_session"]
 
     # Проверяем, есть ли уже
-    existing = (await db.execute(
+    existing = (await db_session.execute(
         select(Seller)
         .where(Seller.shop_id == shop_id)
         .where(Seller.full_name.ilike(name))
@@ -170,11 +162,9 @@ async def enter_name -> None:
 # ─── Выбор роли (для нового) ──────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("cat:"), SubmitReceipt.pick_category)
-async def pick_category -> None:
+async def pick_category(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
     cat_str = cq.data.split(":")[1]
     category = "day" if cat_str == "day" else "night"
-    db = data["db_session"]
-    user: User = data["user"]
     sdata = await state.get_data()
 
     name = sdata["new_seller_name"]
@@ -186,21 +176,21 @@ async def pick_category -> None:
         category=category,
         source=SellerSource.MANUAL,
     )
-    db.add(seller)
-    await db.flush()
-    await db.commit()
+    db_session.add(seller)
+    await db_session.flush()
+    await db_session.commit()
 
     await state.update_data(
         seller_id=seller.id,
         seller_name=name,
         seller_shop_id=shop_id,
-        category=category.value,
+        category=category,
     )
     user.last_seller_id = seller.id
-    await db.commit()
+    await db_session.commit()
 
     # Уведомляем админа
-    shop = await db.get(Shop, shop_id)
+    shop = await db_session.get(Shop, shop_id)
     try:
         from app.bot.loader import bot
         cat_label = "Дневная" if category == "day" else "Ночная"
@@ -234,11 +224,11 @@ async def enter_amount(message: Message, state: FSMContext) -> None:
 # ─── Фото ────────────────────────────────────────────────────────────
 
 @router.message(SubmitReceipt.attach_photo, F.photo)
-async def attach_photo -> None:
+async def attach_photo(message: Message, state: FSMContext) -> None:
     photo = message.photo[-1]
     await state.update_data(photo_file_id=photo.file_id)
     await state.set_state(SubmitReceipt.confirm)
-    await _show_confirm(message, state, data)
+    await _show_confirm(message, state)
 
 
 @router.message(SubmitReceipt.attach_photo)
@@ -249,10 +239,8 @@ async def not_photo(message: Message) -> None:
 # ─── Подтверждение и отправка ──────────────────────────────────────────
 
 @router.callback_query(F.data == "confirm_receipt", SubmitReceipt.confirm)
-async def confirm_receipt -> None:
-    db = data["db_session"]
-    user: User = data["user"]
-    bot = data["bot"]
+async def confirm_receipt(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
+    bot = cq.bot
     sdata = await state.get_data()
 
     receipt = Receipt(
@@ -264,14 +252,14 @@ async def confirm_receipt -> None:
         photo_file_id=sdata["photo_file_id"],
         status="pending",
     )
-    db.add(receipt)
-    await db.flush()
-    await db.refresh(receipt)
-    await db.commit()
+    db_session.add(receipt)
+    await db_session.flush()
+    await db_session.refresh(receipt)
+    await db_session.commit()
 
     # Отправляем админу
-    shop = await db.get(Shop, sdata["seller_shop_id"])
-    seller = await db.get(Seller, sdata["seller_id"])
+    shop = await db_session.get(Shop, sdata["seller_shop_id"])
+    seller = await db_session.get(Seller, sdata["seller_id"])
     await _send_admin_receipt(bot, receipt, shop, seller)
 
     await cq.message.edit_reply_markup(reply_markup=None)
@@ -281,17 +269,15 @@ async def confirm_receipt -> None:
 
 
 @router.callback_query(F.data == "cancel_fsm")
-async def cancel_fsm -> None:
+async def cancel_fsm(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
     await state.clear()
     await cq.message.edit_reply_markup(reply_markup=None)
     await cq.message.answer(texts.cancel)
 
     # Считаем approved чеки
-    db = data["db_session"]
-    user = data["user"]
     from sqlalchemy import func
-    from app.models.receipt import Receipt as R, ReceiptStatus as RS
-    count = await db.execute(
+    from app.models.receipt import Receipt as R
+    count = await db_session.execute(
         func.count(R.id)
         .where(R.user_id == user.id)
         .where(R.status == "approved")
@@ -302,34 +288,35 @@ async def cancel_fsm -> None:
 
 # ─── Помощники ────────────────────────────────────────────────────────
 
-async def _show_confirm -> None:
+async def _show_confirm(message: Message, state: FSMContext) -> None:
     from app.bot.keyboards.inline import confirm_receipt as confirm_kb
+    from app.db import session_scope
 
     sdata = await state.get_data()
-    db = data["db_session"]
 
-    shop = (await db.execute(
-        select(Shop).where(Shop.id == sdata["seller_shop_id"])
-    )).scalar_one_or_none()
-    cat_label = "Дневная" if sdata["category"] == "day" else "Ночная"
-    amount_fmt = f"{float(sdata['amount']):,.2f}".replace(",", " ")
+    async with session_scope() as db_session:
+        shop = (await db_session.execute(
+            select(Shop).where(Shop.id == sdata["seller_shop_id"])
+        )).scalar_one_or_none()
+        cat_label = "Дневная" if sdata["category"] == "day" else "Ночная"
+        amount_fmt = f"{float(sdata['amount']):,.2f}".replace(",", " ")
 
-    await message.answer(
-        f"<b>📋 Проверьте данные:</b>\n\n"
-        f"🏪 Магазин: {shop.name if shop else '?'}\n"
-        f"👤 ФИ: {sdata['seller_name']}\n"
-        f"🏷 Категория: {cat_label}\n"
-        f"💰 Сумма: {amount_fmt} ₽\n\n"
-        f"Всё верно?",
-        reply_markup=confirm_kb(),
-    )
-    await message.answer_photo(
-        photo=sdata["photo_file_id"],
-        caption="📷 Фото чека:",
-    )
+        await message.answer(
+            f"<b>📋 Проверьте данные:</b>\n\n"
+            f"🏪 Магазин: {shop.name if shop else '?'}\n"
+            f"👤 ФИ: {sdata['seller_name']}\n"
+            f"🏷 Категория: {cat_label}\n"
+            f"💰 Сумма: {amount_fmt} ₽\n\n"
+            f"Всё верно?",
+            reply_markup=confirm_kb(),
+        )
+        await message.answer_photo(
+            photo=sdata["photo_file_id"],
+            caption="📷 Фото чека:",
+        )
 
 
-async def _send_admin_receipt(bot, receipt: Receipt, shop: Shop, seller: Seller) -> None:
+async def _send_admin_receipt(bot, receipt, shop, seller) -> None:
     from app.time import fmt_msk
 
     cat_label = "Дневная" if receipt.category == "day" else "Ночная"

@@ -31,14 +31,14 @@ def _normalize_name(raw: str) -> str:
 # ─── Меню → список продавцов ─────────────────────────────────────────────────
 
 @router.callback_query(F.data == "am:sellers")
-async def menu_sellers(cq: CallbackQuery, data: dict) -> None:
+async def menu_sellers -> None:
     await _seller_list(cq, data, 0, None)
 
 
 # ─── Пагинация / фильтр ───────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("sl:"))
-async def seller_list_page(cq: CallbackQuery, data: dict) -> None:
+async def seller_list_page -> None:
     # sl:{shop_id}:{page}
     parts = cq.data.split(":")
     shop_id = int(parts[1]) if parts[1] != "all" else None
@@ -130,7 +130,7 @@ def _build_sellers_keyboard(builder: InlineKeyboardBuilder, shop_filter_buttons:
 # ─── Карточка продавца ────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("se:"))
-async def seller_card(cq: CallbackQuery, data: dict) -> None:
+async def seller_card -> None:
     seller_id = int(cq.data.split(":")[1])
     db = data["db_session"]
 
@@ -164,7 +164,7 @@ async def seller_card(cq: CallbackQuery, data: dict) -> None:
 # ─── Добавление продавца ──────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "asa:pick_shop")
-async def add_seller_pick_shop(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def add_seller_pick_shop -> None:
     db = data["db_session"]
     shops = (await db.execute(select(Shop).where(Shop.is_active == True).order_by(Shop.name))).scalars().all()
 
@@ -178,7 +178,7 @@ async def add_seller_pick_shop(cq: CallbackQuery, state: FSMContext, data: dict)
 
 
 @router.callback_query(F.data.startswith("asa:shop:"))
-async def add_seller_shop(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def add_seller_shop -> None:
     shop_id = int(cq.data.split(":")[2])
     await state.set_state(AdminSellerAdd.enter_name)
     await state.update_data(shop_id=shop_id)
@@ -188,7 +188,7 @@ async def add_seller_shop(cq: CallbackQuery, state: FSMContext, data: dict) -> N
 
 
 @router.message(AdminSellerAdd.enter_name)
-async def add_seller_name(message: Message, state: FSMContext, data: dict) -> None:
+async def add_seller_name -> None:
     raw = message.text or ""
     if not NAME_RE.match(raw.strip()):
         await message.answer(texts.name_error)
@@ -224,7 +224,7 @@ def _category_picker_inline() -> InlineKeyboardMarkup:
 
 
 @router.callback_query(F.data.startswith("asa:cat:"), AdminSellerAdd.pick_category)
-async def add_seller_category(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def add_seller_category -> None:
     cat_str = cq.data.split(":")[2]
     category = "day" if cat_str == "day" else "night"
     sdata = await state.get_data()
@@ -249,7 +249,7 @@ async def add_seller_category(cq: CallbackQuery, state: FSMContext, data: dict) 
 # ─── Редактирование продавца ────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("ese:"))
-async def edit_seller_start(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def edit_seller_start -> None:
     seller_id = int(cq.data.split(":")[1])
     db = data["db_session"]
     seller: Seller | None = await db.get(Seller, seller_id)
@@ -274,7 +274,7 @@ async def edit_seller_start(cq: CallbackQuery, state: FSMContext, data: dict) ->
 
 
 @router.callback_query(F.data == "ese:cat", AdminSellerEdit.pick_field)
-async def edit_seller_cat(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def edit_seller_cat -> None:
     sdata = await state.get_data()
     db = data["db_session"]
     seller: Seller | None = await db.get(Seller, sdata["seller_id"])
@@ -291,7 +291,7 @@ async def edit_seller_cat(cq: CallbackQuery, state: FSMContext, data: dict) -> N
 
 
 @router.callback_query(F.data == "ese:shop", AdminSellerEdit.pick_field)
-async def edit_seller_shop(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def edit_seller_shop -> None:
     sdata = await state.get_data()
     db = data["db_session"]
     seller: Seller | None = await db.get(Seller, sdata["seller_id"])
@@ -313,7 +313,7 @@ async def edit_seller_shop(cq: CallbackQuery, state: FSMContext, data: dict) -> 
 
 
 @router.callback_query(F.data.startswith("ese:shop:"))
-async def edit_seller_shop_apply(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def edit_seller_shop_apply -> None:
     parts = cq.data.split(":")
     seller_id = int(parts[2])
     new_shop_id = int(parts[3])
@@ -335,7 +335,7 @@ async def edit_seller_shop_apply(cq: CallbackQuery, state: FSMContext, data: dic
 # ─── Удаление продавца ───────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("ds:"))
-async def delete_seller(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def delete_seller -> None:
     seller_id = int(cq.data.split(":")[1])
     db = data["db_session"]
     seller: Seller | None = await db.get(Seller, seller_id)

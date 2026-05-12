@@ -19,7 +19,7 @@ texts = Texts()
 
 
 @router.callback_query(F.data.startswith("ar:approve:"))
-async def approve(cq: CallbackQuery, data: dict) -> None:
+async def approve -> None:
     receipt_id = int(cq.data.split(":")[2])
     db = data["db_session"]
     bot = data["bot"]
@@ -75,7 +75,7 @@ async def reject_start(cq: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("rr:"))
-async def reject_confirm(cq: CallbackQuery, data: dict) -> None:
+async def reject_confirm -> None:
     # rr:{action}:{reason}:{receipt_id}
     parts = cq.data.split(":")
     action = parts[1]  # reject | retry

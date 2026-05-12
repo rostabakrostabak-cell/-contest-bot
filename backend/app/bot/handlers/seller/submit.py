@@ -47,8 +47,7 @@ def _parse_amount(raw: str) -> Decimal | None:
 # ─── Entry: выбор магазина ─────────────────────────────────────────────────
 
 @router.message(F.text == "📋 Отправить чек")
-async def start_submit(message: Message, state: FSMContext, data: dict) -> None:
-    db = data["db_session"]
+async def start_submit(message: Message, state: FSMContext, db_session, user) -> None:
 
     if not await is_submissions_open(db):
         await message.answer(texts.submissions_closed)
@@ -71,7 +70,7 @@ async def start_submit(message: Message, state: FSMContext, data: dict) -> None:
 # ─── Выбор магазина ─────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("shop:"), SubmitReceipt.pick_shop)
-async def pick_shop(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def pick_shop -> None:
     shop_id = int(cq.data.split(":")[1])
     db = data["db_session"]
     user: User = data["user"]
@@ -101,7 +100,7 @@ async def pick_shop(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
 # ─── Выбор ФИ (существующий) ─────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("sel:"), SubmitReceipt.pick_seller)
-async def pick_seller(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def pick_seller -> None:
     seller_id = int(cq.data.split(":")[1])
     db = data["db_session"]
     user: User = data["user"]
@@ -135,7 +134,7 @@ async def new_seller_start(cq: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.message(SubmitReceipt.enter_name)
-async def enter_name(message: Message, state: FSMContext, data: dict) -> None:
+async def enter_name -> None:
     raw = message.text or ""
     if not NAME_RE.match(raw.strip()):
         await message.answer(texts.name_error)
@@ -171,7 +170,7 @@ async def enter_name(message: Message, state: FSMContext, data: dict) -> None:
 # ─── Выбор роли (для нового) ──────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("cat:"), SubmitReceipt.pick_category)
-async def pick_category(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def pick_category -> None:
     cat_str = cq.data.split(":")[1]
     category = "day" if cat_str == "day" else "night"
     db = data["db_session"]
@@ -235,7 +234,7 @@ async def enter_amount(message: Message, state: FSMContext) -> None:
 # ─── Фото ────────────────────────────────────────────────────────────
 
 @router.message(SubmitReceipt.attach_photo, F.photo)
-async def attach_photo(message: Message, state: FSMContext, data: dict) -> None:
+async def attach_photo -> None:
     photo = message.photo[-1]
     await state.update_data(photo_file_id=photo.file_id)
     await state.set_state(SubmitReceipt.confirm)
@@ -250,7 +249,7 @@ async def not_photo(message: Message) -> None:
 # ─── Подтверждение и отправка ──────────────────────────────────────────
 
 @router.callback_query(F.data == "confirm_receipt", SubmitReceipt.confirm)
-async def confirm_receipt(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def confirm_receipt -> None:
     db = data["db_session"]
     user: User = data["user"]
     bot = data["bot"]
@@ -282,7 +281,7 @@ async def confirm_receipt(cq: CallbackQuery, state: FSMContext, data: dict) -> N
 
 
 @router.callback_query(F.data == "cancel_fsm")
-async def cancel_fsm(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
+async def cancel_fsm -> None:
     await state.clear()
     await cq.message.edit_reply_markup(reply_markup=None)
     await cq.message.answer(texts.cancel)
@@ -303,7 +302,7 @@ async def cancel_fsm(cq: CallbackQuery, state: FSMContext, data: dict) -> None:
 
 # ─── Помощники ────────────────────────────────────────────────────────
 
-async def _show_confirm(message: Message, state: FSMContext, data: dict) -> None:
+async def _show_confirm -> None:
     from app.bot.keyboards.inline import confirm_receipt as confirm_kb
 
     sdata = await state.get_data()

@@ -27,7 +27,7 @@ texts = Texts()
 # ─── Главное меню ──────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "am:menu")
-async def admin_menu(cq: CallbackQuery, data: dict) -> None:
+async def admin_menu -> None:
     await cq.message.edit_text(
         texts.admin_menu,
         reply_markup=admin_inline_menu(),
@@ -56,7 +56,7 @@ def admin_inline_menu() -> InlineKeyboardMarkup:
 # ─── Mini App ───────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "am:miniapp")
-async def menu_miniapp(cq: CallbackQuery, data: dict) -> None:
+async def menu_miniapp -> None:
     from app.config import get_settings
     settings = get_settings()
 
@@ -88,7 +88,7 @@ async def menu_miniapp(cq: CallbackQuery, data: dict) -> None:
 # ─── Настройки ─────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "am:settings")
-async def menu_settings(cq: CallbackQuery, data: dict) -> None:
+async def menu_settings -> None:
     db = data["db_session"]
     settings_obj: ContestSettings | None = await db.get(ContestSettings, 1)
 
@@ -142,7 +142,7 @@ async def settings_day_goal(message: Message, state: FSMContext) -> None:
 
 
 @router.message(AdminSettings.enter_night_goal)
-async def settings_night_goal(message: Message, state: FSMContext, data: dict) -> None:
+async def settings_night_goal -> None:
     try:
         night_goal = int(message.text or "")
         if night_goal <= 0:
@@ -169,7 +169,7 @@ async def settings_night_goal(message: Message, state: FSMContext, data: dict) -
 # ─── Экспорт в Excel ────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "am:export")
-async def menu_export(cq: CallbackQuery, data: dict) -> None:
+async def menu_export -> None:
     builder = InlineKeyboardBuilder()
     items = [
         ("📋 Все чеки", "ex:all"),
@@ -189,7 +189,7 @@ async def menu_export(cq: CallbackQuery, data: dict) -> None:
 
 
 @router.callback_query(F.data.startswith("ex:"))
-async def export_excel(cq: CallbackQuery, data: dict) -> None:
+async def export_excel -> None:
     export_type = cq.data.split(":")[1]
     db = data["db_session"]
     bot = data["bot"]
@@ -271,7 +271,7 @@ async def export_excel(cq: CallbackQuery, data: dict) -> None:
 # ─── Итоги ─────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data == "am:final")
-async def menu_final(cq: CallbackQuery, data: dict) -> None:
+async def menu_final -> None:
     db = data["db_session"]
     settings_obj: ContestSettings | None = await db.get(ContestSettings, 1)
 

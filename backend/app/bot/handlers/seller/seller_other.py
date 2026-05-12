@@ -24,7 +24,7 @@ settings = get_settings()
 texts = Texts()
 
 
-async def send_main_menu(message: Message, data: dict) -> None:
+async def send_main_menu -> None:
     """Отправляет главное меню с актуальным счётчиком."""
     db = data["db_session"]
     user: User = data["user"]
@@ -40,7 +40,7 @@ async def send_main_menu(message: Message, data: dict) -> None:
 # ─── Рейтинг магазинов ──────────────────────────────────────────────────────
 
 @router.message(F.text == "🏪 Рейтинг магазинов")
-async def show_shops_ranking(message: Message, data: dict) -> None:
+async def show_shops_ranking -> None:
     db = data["db_session"]
 
     day_shops = await top_shops_live(db, "day", limit=3)
@@ -69,7 +69,7 @@ async def show_shops_ranking(message: Message, data: dict) -> None:
 # ─── Рейтинг продавцов ─────────────────────────────────────────────────────
 
 @router.message(F.text == "🏆 Рейтинг продавцов")
-async def show_sellers_ranking(message: Message, data: dict) -> None:
+async def show_sellers_ranking -> None:
     db = data["db_session"]
 
     day_sellers = await top_sellers_live(db, "day", limit=3)
@@ -98,7 +98,7 @@ async def show_sellers_ranking(message: Message, data: dict) -> None:
 # ─── Мои чеки ──────────────────────────────────────────────────────────────
 
 @router.message(F.text.startswith("📋 Мои чеки"))
-async def show_my_receipts(message: Message, data: dict) -> None:
+async def show_my_receipts -> None:
     db = data["db_session"]
     user: User = data["user"]
 
@@ -135,7 +135,7 @@ async def start_contact(message: Message, state: FSMContext) -> None:
 
 
 @router.message(ContactAdmin.typing_message)
-async def contact_message(message: Message, state: FSMContext, data: dict) -> None:
+async def contact_message -> None:
     db = data["db_session"]
     user: User = data["user"]
     bot = data["bot"]

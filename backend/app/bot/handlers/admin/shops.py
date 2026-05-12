@@ -21,11 +21,11 @@ texts = Texts()
 # ─── Меню → список магазинов ────────────────────────────────────────────────
 
 @router.callback_query(F.data == "am:shops")
-async def menu_shops(cq: CallbackQuery, data: dict) -> None:
+async def menu_shops -> None:
     await _shop_list(cq, data)
 
 
-async def _shop_list(cq: CallbackQuery, data: dict) -> None:
+async def _shop_list -> None:
     db = data["db_session"]
     shops = (await db.execute(select(Shop).order_by(Shop.name))).scalars().all()
 
@@ -49,7 +49,7 @@ async def _shop_list(cq: CallbackQuery, data: dict) -> None:
 # ─── Карточка магазина ────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("sh:"))
-async def shop_card(cq: CallbackQuery, data: dict) -> None:
+async def shop_card -> None:
     shop_id = int(cq.data.split(":")[1])
     db = data["db_session"]
 
@@ -84,7 +84,7 @@ async def shop_card(cq: CallbackQuery, data: dict) -> None:
 # ─── Активация / деактивация ─────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("sh:deact:"))
-async def shop_deactivate(cq: CallbackQuery, data: dict) -> None:
+async def shop_deactivate -> None:
     shop_id = int(cq.data.split(":")[2])
     db = data["db_session"]
     shop: Shop | None = await db.get(Shop, shop_id)
@@ -96,7 +96,7 @@ async def shop_deactivate(cq: CallbackQuery, data: dict) -> None:
 
 
 @router.callback_query(F.data.startswith("sh:act:"))
-async def shop_activate(cq: CallbackQuery, data: dict) -> None:
+async def shop_activate -> None:
     shop_id = int(cq.data.split(":")[2])
     db = data["db_session"]
     shop: Shop | None = await db.get(Shop, shop_id)
@@ -110,7 +110,7 @@ async def shop_activate(cq: CallbackQuery, data: dict) -> None:
 # ─── Удаление ────────────────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("sh:del:"))
-async def shop_delete(cq: CallbackQuery, data: dict) -> None:
+async def shop_delete -> None:
     shop_id = int(cq.data.split(":")[2])
     db = data["db_session"]
 
@@ -144,7 +144,7 @@ async def add_shop_start(cq: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.message(AdminShopAdd.enter_name)
-async def add_shop_name(message: Message, state: FSMContext, data: dict) -> None:
+async def add_shop_name -> None:
     name = (message.text or "").strip()
     if not name or len(name) < 2:
         await message.answer("Название слишком короткое. Введите минимум 2 символа:")

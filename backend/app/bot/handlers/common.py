@@ -43,19 +43,19 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
 
 
 @router.message(F.text.startswith("📋 Мои чеки"))
-async def menu_my_receipts(message: Message, data: dict) -> None:
+async def menu_my_receipts -> None:
     from app.bot.handlers.seller.seller_other import show_my_receipts
     await show_my_receipts(message, data)
 
 
 @router.message(F.text == "🏪 Рейтинг магазинов")
-async def menu_shops_ranking(message: Message, data: dict) -> None:
+async def menu_shops_ranking -> None:
     from app.bot.handlers.seller.seller_other import show_shops_ranking
     await show_shops_ranking(message, data)
 
 
 @router.message(F.text == "🏆 Рейтинг продавцов")
-async def menu_sellers_ranking(message: Message, data: dict) -> None:
+async def menu_sellers_ranking -> None:
     from app.bot.handlers.seller.seller_other import show_sellers_ranking
     await show_sellers_ranking(message, data)
 
@@ -83,7 +83,7 @@ async def admin_panel(message: Message, user, db_session) -> None:
 
 
 @router.callback_query(F.data == "back_main")
-async def back_main(cq: CallbackQuery, state, data: dict) -> None:
+async def back_main -> None:
     await state.clear()
     await cq.message.delete()
     from app.bot.handlers.seller.seller_other import send_main_menu

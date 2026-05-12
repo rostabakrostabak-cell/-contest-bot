@@ -1,0 +1,54 @@
+# /etc/nginx/sites-available/contest
+#
+# Этот файл — эталон. На сервере certbot после первого запуска
+# добавит сюда блок listen 443 ssl и редирект 80 → 443 автоматически.
+#
+# Слушаем 80 — certbot подхватит и допишет TLS-секцию.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name rtbkonkurs.ru;
+
+    client_max_body_size 10m;
+
+    # Backend API (FastAPI на 127.0.0.1:8000)
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket для Mini App realtime
+    location /ws {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+
+    # Mini App — статика, собранная Vite в miniapp/dist
+    location /miniapp/ {
+        alias /opt/contest/miniapp/dist/;
+        try_files $uri $uri/ /miniapp/index.html;
+
+        # Кэш для ассетов
+        location ~* \.(js|css|svg|png|jpg|webp|woff2)$ {
+            expires 30d;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # Корень — отдаём 404, чтобы случайные боты не получали ничего лишнего
+    location = / {
+        return 404;
+    }
+
+    # Скрываем серверный токен
+    server_tokens off;
+}

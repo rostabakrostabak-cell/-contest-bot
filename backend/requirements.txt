@@ -1,0 +1,30 @@
+# --- Telegram bot ---
+aiogram==3.13.1
+
+# --- API ---
+fastapi==0.115.2
+uvicorn[standard]==0.30.6
+
+# --- DB ---
+sqlalchemy==2.0.35
+alembic==1.13.3
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# --- Cache / pub-sub / FSM ---
+redis==5.0.8
+
+# --- Scheduler ---
+apscheduler==3.10.4
+
+# --- Config / IO ---
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+orjson==3.10.7
+
+# --- Excel ---
+openpyxl==3.1.5
+
+# --- HTTP (для возможных будущих интеграций) ---
+httpx==0.27.2

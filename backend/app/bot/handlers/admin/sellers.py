@@ -234,7 +234,7 @@ async def add_seller_category -> None:
         shop_id=sdata["shop_id"],
         full_name=sdata["name"],
         category=category,
-        source=SellerSource.ADMIN,
+        source=SellerSource.admin,
     )
     db.add(seller)
     await db.flush()
@@ -355,7 +355,7 @@ async def delete_seller -> None:
             "⚠️ Нельзя удалить: за продавцом закреплены чеки.\n"
             "Продавец останется, но будет скрыт из списков.",
         )
-        seller.source = SellerSource.MANUAL  # просто меняем флаг, не удаляем
+        seller.source = SellerSource.manual  # просто меняем флаг, не удаляем
         await db.commit()
     else:
         await db.delete(seller)

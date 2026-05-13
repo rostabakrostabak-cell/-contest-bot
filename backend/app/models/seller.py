@@ -12,9 +12,9 @@ class SellerCategory(str, enum.Enum):
 
 
 class SellerSource(str, enum.Enum):
-    PRELOAD = "preload"   # из стартового Excel
-    MANUAL = "manual"     # добавлен продавцом через "меня нет в списке"
-    ADMIN = "admin"       # добавлен админом вручную
+    preload = "preload"
+    manual = "manual"
+    admin = "admin"
 
 
 class Seller(Base, TimestampMixin):
@@ -36,7 +36,7 @@ class Seller(Base, TimestampMixin):
     )
     source: Mapped[SellerSource] = mapped_column(
         Enum(SellerSource, name="seller_source"),
-        default=SellerSource.PRELOAD,
+        default=SellerSource.preload,
         nullable=False,
     )
 

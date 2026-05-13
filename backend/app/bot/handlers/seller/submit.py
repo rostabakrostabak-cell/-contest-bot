@@ -1,4 +1,5 @@
 """Receipt submission: shop -> name -> amount -> photo."""
+import logging
 import re
 from decimal import Decimal, InvalidOperation
 
@@ -24,6 +25,7 @@ router = Router()
 
 settings = get_settings()
 texts = Texts()
+log = logging.getLogger(__name__)
 
 NAME_RE = re.compile(r"^[а-яА-Яa-zA-ZЁё]+ [а-яА-Яa-zA-ZЁё]+$")
 
@@ -48,6 +50,7 @@ def _parse_amount(raw: str) -> Decimal | None:
 
 @router.message(F.text == "Отправить чек")
 async def start_submit(message: Message, state: FSMContext, db_session, user) -> None:
+    log.info("start_submit called")
     if not await is_submissions_open(db_session):
         await message.answer(texts.submissions_closed)
         return
@@ -64,12 +67,14 @@ async def start_submit(message: Message, state: FSMContext, db_session, user) ->
         return
 
     await message.answer(texts.pick_shop, reply_markup=shop_picker(shops))
+    log.info("Sent shop picker, state=%s", await state.get_state())
 
 
 # ─── Pick Shop ──────────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("shop:"), SubmitReceipt.pick_shop)
 async def pick_shop(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
+    log.info("pick_shop called, data=%s", cq.data)
     shop_id = int(cq.data.split(":")[1])
     await state.update_data(shop_id=shop_id)
 
@@ -86,16 +91,20 @@ async def pick_shop(cq: CallbackQuery, state: FSMContext, db_session, user) -> N
             saved_seller = None
 
     await state.set_state(SubmitReceipt.pick_seller)
+    seller_kb = seller_picker_list(sellers, shop_id=shop_id, saved_seller=saved_seller)
+    log.info("seller_kb rows: %s", len(seller_kb.inline_keyboard))
     await cq.message.edit_reply_markup(
-        reply_markup=seller_picker_list(sellers, shop_id=shop_id, saved_seller=saved_seller)
+        reply_markup=seller_kb
     )
     await cq.answer()
+    log.info("pick_shop done, state=%s", await state.get_state())
 
 
 # ─── Pick Existing Seller ──────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("sel:"), SubmitReceipt.pick_seller)
 async def pick_seller(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
+    log.info("pick_seller called, data=%s", cq.data)
     seller_id = int(cq.data.split(":")[1])
     seller: Seller = await db_session.get(Seller, seller_id)
     await state.update_data(
@@ -116,17 +125,28 @@ async def pick_seller(cq: CallbackQuery, state: FSMContext, db_session, user) ->
 # ─── New Seller: Enter Name ────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("new_sel:"), SubmitReceipt.pick_seller)
-async def new_seller_start(cq: CallbackQuery, state: FSMContext) -> None:
+async def new_seller_start(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
+    log.info("=== new_seller_start CALLED ===")
+    log.info("data=%s", cq.data)
+    log.info("current state=%s", await state.get_state())
     shop_id = int(cq.data.split(":")[1])
+    log.info("shop_id=%s", shop_id)
     await state.update_data(new_seller_shop_id=shop_id)
     await state.set_state(SubmitReceipt.enter_name)
+    log.info("State now=%s", await state.get_state())
     await cq.message.edit_reply_markup(reply_markup=None)
     await cq.message.answer(texts.enter_name)
     await cq.answer()
+    log.info("new_seller_start done")
 
+
+# ─── Enter Name (text input) ───────────────────────────────────────
 
 @router.message(SubmitReceipt.enter_name)
-async def enter_name(message: Message, state: FSMContext, db_session) -> None:
+async def enter_name(message: Message, state: FSMContext, db_session, user) -> None:
+    log.info("=== enter_name CALLED ===")
+    log.info("message.text=%s", message.text)
+    log.info("state from Redis=%s", await state.get_state())
     raw = message.text or ""
     if not NAME_RE.match(raw.strip()):
         await message.answer(texts.name_error)
@@ -155,14 +175,16 @@ async def enter_name(message: Message, state: FSMContext, db_session) -> None:
         await state.update_data(new_seller_name=name)
         await state.set_state(SubmitReceipt.pick_category)
         await message.answer(texts.pick_category, reply_markup=category_picker())
+    log.info("enter_name done")
 
 
 # ─── Pick Category ──────────────────────────────────────────────────
 
 @router.callback_query(F.data.startswith("cat:"), SubmitReceipt.pick_category)
 async def pick_category(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
+    log.info("pick_category called")
     cat_str = cq.data.split(":")[1]
-    category = "day" if cat_str == "day" else "night"
+    category = SellerCategory.DAY if cat_str == "day" else SellerCategory.NIGHT
     sdata = await state.get_data()
 
     name = sdata["new_seller_name"]
@@ -172,7 +194,7 @@ async def pick_category(cq: CallbackQuery, state: FSMContext, db_session, user) 
         shop_id=shop_id,
         full_name=name,
         category=category,
-        source=SellerSource.MANUAL,
+        source=SellerSource.manual,
     )
     db_session.add(seller)
     await db_session.flush()
@@ -188,11 +210,12 @@ async def pick_category(cq: CallbackQuery, state: FSMContext, db_session, user) 
     await db_session.commit()
 
     shop = await db_session.get(Shop, shop_id)
+    cat_label = "Дневная" if category == SellerCategory.DAY else "Ночная"
     try:
         from app.bot.loader import bot
         await bot.send_message(
             chat_id=settings.admin_tg_id,
-            text=f"Новый продавец: {name}\n{shop.name if shop else ''}\n{'Дневная' if category == 'day' else 'Ночная'}",
+            text=f"Новый продавец: {name}\n{shop.name if shop else ''}\n{cat_label}",
         )
     except Exception:
         pass
@@ -207,6 +230,7 @@ async def pick_category(cq: CallbackQuery, state: FSMContext, db_session, user) 
 
 @router.message(SubmitReceipt.enter_amount)
 async def enter_amount(message: Message, state: FSMContext) -> None:
+    log.info("enter_amount called")
     amount = _parse_amount(message.text or "")
     if amount is None:
         await message.answer(texts.amount_error)
@@ -221,6 +245,7 @@ async def enter_amount(message: Message, state: FSMContext) -> None:
 
 @router.message(SubmitReceipt.attach_photo, F.photo)
 async def attach_photo(message: Message, state: FSMContext) -> None:
+    log.info("attach_photo called")
     photo = message.photo[-1]
     await state.update_data(photo_file_id=photo.file_id)
     await state.set_state(SubmitReceipt.confirm)
@@ -236,6 +261,7 @@ async def not_photo(message: Message) -> None:
 
 @router.callback_query(F.data == "confirm_receipt", SubmitReceipt.confirm)
 async def confirm_receipt(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
+    log.info("confirm_receipt called")
     bot = cq.bot
     sdata = await state.get_data()
 
@@ -243,7 +269,7 @@ async def confirm_receipt(cq: CallbackQuery, state: FSMContext, db_session, user
         user_id=user.id,
         seller_id=sdata["seller_id"],
         shop_id=sdata["seller_shop_id"],
-        category=SellerCategory(sdata["category"]),
+        category=sdata["category"].value if hasattr(sdata["category"], 'value') else str(sdata["category"]),
         amount=Decimal(sdata["amount"]),
         photo_file_id=sdata["photo_file_id"],
         status="pending",
@@ -265,6 +291,7 @@ async def confirm_receipt(cq: CallbackQuery, state: FSMContext, db_session, user
 
 @router.callback_query(F.data == "cancel_fsm")
 async def cancel_fsm(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
+    log.info("cancel_fsm called")
     await state.clear()
     await cq.message.edit_reply_markup(reply_markup=None)
     await cq.message.answer(texts.cancel)
@@ -281,30 +308,20 @@ async def cancel_fsm(cq: CallbackQuery, state: FSMContext, db_session, user) -> 
 
 async def _show_confirm(message: Message, state: FSMContext) -> None:
     from app.bot.keyboards.inline import confirm_receipt as confirm_kb
-    from app.db import session_scope
 
     sdata = await state.get_data()
+    cat_label = "Дневная" if sdata["category"] == "day" else "Ночная"
+    amount_fmt = f"{float(sdata['amount']):,.2f}".replace(",", " ")
 
-    async with session_scope() as db_session:
-        shop = (await db_session.execute(
-            select(Shop).where(Shop.id == sdata["seller_shop_id"])
-        )).scalar_one_or_none()
-        cat_label = "Дневная" if sdata["category"] == "day" else "Ночная"
-        amount_fmt = f"{float(sdata['amount']):,.2f}".replace(",", " ")
-
-        await message.answer(
-            f"<b>Проверьте данные:</b>\n\n"
-            f"Магазин: {shop.name if shop else '?'}\n"
-            f"ФИ: {sdata['seller_name']}\n"
-            f"Категория: {cat_label}\n"
-            f"Сумма: {amount_fmt} ₽\n\n"
-            f"Всё верно?",
-            reply_markup=confirm_kb(),
-        )
-        await message.answer_photo(
-            photo=sdata["photo_file_id"],
-            caption="Фото чека:",
-        )
+    await message.answer(
+        f"<b>Проверьте данные:</b>\n\n"
+        f"Магазин ID: {sdata['seller_shop_id']}\n"
+        f"ФИ: {sdata['seller_name']}\n"
+        f"Категория: {cat_label}\n"
+        f"Сумма: {amount_fmt} ₽\n\n"
+        f"Всё верно?",
+        reply_markup=confirm_kb(),
+    )
 
 
 async def _send_admin_receipt(bot, receipt, shop, seller) -> None:

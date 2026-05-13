@@ -146,7 +146,7 @@ async def contact_message(message: Message, state: FSMContext, user: User, db_se
     if shop:
         header += f"{shop.name}\n"
     if seller:
-        header += f"{'Дневная' if seller.category == 'day' else 'Ночная'}\n"
+        header += f"{'Дневная' if seller.category == SellerCategory.DAY else 'Ночная'}\n"
     header += f"\nТекст:\n{text_msg}"
 
     try:

@@ -27,12 +27,12 @@ class ReceiptStatus(str, enum.Enum):
 
 
 class RejectReason(str, enum.Enum):
-    BELOW_THRESHOLD = "below_threshold"   # сумма ниже порога конкурса
-    UNREADABLE = "unreadable"             # фото нечитаемое
-    NOT_A_RECEIPT = "not_a_receipt"       # фото не чека
-    DUPLICATE = "duplicate"               # дубликат
-    INVALID_DATA = "invalid_data"         # неверные данные
-    OTHER = "other"                       # другое — нужен текст
+    BELOW_THRESHOLD = "below_threshold"
+    UNREADABLE = "unreadable"
+    NOT_A_RECEIPT = "not_a_receipt"
+    DUPLICATE = "duplicate"
+    INVALID_DATA = "invalid_data"
+    OTHER = "other"
 
 
 class Receipt(Base):
@@ -60,17 +60,14 @@ class Receipt(Base):
     shop_id: Mapped[int] = mapped_column(
         ForeignKey("shops.id", ondelete="RESTRICT"), nullable=False
     )
-    category: Mapped[SellerCategory] = mapped_column(
-        Enum(SellerCategory, name="seller_category"),
-        nullable=False,
-    )
+    category: Mapped[str] = mapped_column(String(20), nullable=False)
 
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     photo_file_id: Mapped[str] = mapped_column(String(256), nullable=False)
 
     status: Mapped[str] = mapped_column(
         String(20),
-        default=ReceiptStatus.PENDING.value,
+        default="pending",
         nullable=False,
     )
     reject_reason_code: Mapped[Optional[str]] = mapped_column(

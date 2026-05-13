@@ -1,4 +1,4 @@
-"""Общий роутер: /start, главное меню."""
+"""Common router: /start, main menu."""
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -38,39 +38,39 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
     await message.answer(texts.cancel, reply_markup=seller_main_menu())
 
 
-@router.message(F.text.startswith("📋 Мои чеки"))
+@router.message(F.text.startswith("Мои чеки"))
 async def menu_my_receipts(message: Message, user, db_session) -> None:
     from app.bot.handlers.seller.seller_other import show_my_receipts
     await show_my_receipts(message, user, db_session)
 
 
-@router.message(F.text == "🏪 Рейтинг магазинов")
+@router.message(F.text == "Рейтинг магазинов")
 async def menu_shops_ranking(message: Message, db_session) -> None:
     from app.bot.handlers.seller.seller_other import show_shops_ranking
     await show_shops_ranking(message, db_session)
 
 
-@router.message(F.text == "🏆 Рейтинг продавцов")
+@router.message(F.text == "Рейтинг продавцов")
 async def menu_sellers_ranking(message: Message, db_session) -> None:
     from app.bot.handlers.seller.seller_other import show_sellers_ranking
     await show_sellers_ranking(message, db_session)
 
 
-@router.message(F.text == "🧪 Колба")
+@router.message(F.text == "Колба")
 async def menu_kolba(message: Message) -> None:
     await message.answer(
-        f"🧪 Нажмите кнопку ниже, чтобы открыть Колбу:\n\n"
+        f"Нажмите кнопку ниже, чтобы открыть Колбу:\n\n"
         f"<a href=\"{settings.miniapp_url}\">Открыть Mini App</a>"
     )
 
 
-@router.message(F.text == "💬 Связаться с админом")
+@router.message(F.text == "Связаться с админом")
 async def menu_contact(message: Message, state: FSMContext) -> None:
     from app.bot.handlers.seller.seller_other import start_contact
     await start_contact(message, state)
 
 
-@router.message(F.text == "⚙️ Админ-панель")
+@router.message(F.text == "Админ-панель")
 async def admin_panel(message: Message, user, db_session) -> None:
     if user.tg_id != settings.admin_tg_id:
         await message.answer(texts.unknown)

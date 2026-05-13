@@ -1,13 +1,12 @@
-"""Админ: подтверждение / отклонение / на доработку заявки."""
+"""Admin: approve/reject receipts."""
 import logging
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
-from sqlalchemy import select
 
 from app.bot.keyboards.inline import admin_reject_reasons
 from app.bot.texts import Texts
-from app.models.receipt import Receipt, ReceiptStatus
+from app.models.receipt import Receipt
 from app.models.user import User
 from app.config import get_settings
 
@@ -19,12 +18,10 @@ texts = Texts()
 
 
 @router.callback_query(F.data.startswith("ar:approve:"))
-async def approve -> None:
+async def approve(cq: CallbackQuery, db_session, user, bot) -> None:
     receipt_id = int(cq.data.split(":")[2])
-    db = data["db_session"]
-    bot = data["bot"]
 
-    receipt: Receipt | None = await db.get(Receipt, receipt_id)
+    receipt: Receipt | None = await db_session.get(Receipt, receipt_id)
     if not receipt:
         await cq.answer("Не найден.", show_alert=True)
         return
@@ -35,19 +32,19 @@ async def approve -> None:
     receipt.status = "approved"
     from app.time import now_utc
     receipt.decided_at = now_utc()
-    receipt.decided_by_user_id = data["user"].id
-    await db.commit()
+    receipt.decided_by_user_id = user.id
+    await db_session.commit()
 
-    # Уведомляем продавца
-    user: User | None = await db.get(User, receipt.user_id)
-    if user:
+    # Notify seller
+    seller_user: User | None = await db_session.get(User, receipt.user_id)
+    if seller_user:
         try:
             await bot.send_message(
-                chat_id=user.tg_id,
+                chat_id=seller_user.tg_id,
                 text=texts.approved_notification.format(receipt_id=receipt.id),
             )
         except Exception as e:
-            log.error("Notify user %s failed: %s", user.tg_id, e)
+            log.error("Notify user %s failed: %s", seller_user.tg_id, e)
 
     await cq.message.edit_caption(
         caption=cq.message.caption + "\n\n✅ <b>Подтверждено</b>",
@@ -75,10 +72,10 @@ async def reject_start(cq: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("rr:"))
-async def reject_confirm -> None:
+async def reject_confirm(cq: CallbackQuery, db_session, user, bot) -> None:
     # rr:{action}:{reason}:{receipt_id}
     parts = cq.data.split(":")
-    action = parts[1]  # reject | retry
+    action = parts[1]
     reason_code = parts[2]
     receipt_id = int(parts[3])
 
@@ -88,10 +85,7 @@ async def reject_confirm -> None:
         "photo": "Сделайте новое фото чека",
     }.get(reason_code, reason_code)
 
-    db = data["db_session"]
-    bot = data["bot"]
-
-    receipt: Receipt | None = await db.get(Receipt, receipt_id)
+    receipt: Receipt | None = await db_session.get(Receipt, receipt_id)
     if not receipt:
         await cq.answer("Не найден.", show_alert=True)
         return
@@ -106,22 +100,20 @@ async def reject_confirm -> None:
             receipt.reject_reason_text = "Сумма не подходит"
         elif reason_code == "old":
             receipt.reject_reason_text = "Чек устарел"
-    else:
-        # retry = на доработку, возвращаем в pending (можно редактировать)
-        pass  # Оставляем pending, просто уведомляем
+    # else: keep pending, just notify
 
     from app.time import now_utc
     receipt.decided_at = now_utc()
-    receipt.decided_by_user_id = data["user"].id
-    await db.commit()
+    receipt.decided_by_user_id = user.id
+    await db_session.commit()
 
-    # Уведомляем продавца
-    user: User | None = await db.get(User, receipt.user_id)
-    if user:
+    # Notify seller
+    seller_user: User | None = await db_session.get(User, receipt.user_id)
+    if seller_user:
         try:
             if action == "reject":
                 await bot.send_message(
-                    chat_id=user.tg_id,
+                    chat_id=seller_user.tg_id,
                     text=texts.rejected_notification.format(
                         receipt_id=receipt.id,
                         reason=reason_text,
@@ -129,14 +121,14 @@ async def reject_confirm -> None:
                 )
             else:
                 await bot.send_message(
-                    chat_id=user.tg_id,
+                    chat_id=seller_user.tg_id,
                     text=texts.retry_notification.format(
                         receipt_id=receipt.id,
                         reason=reason_text,
                     ),
                 )
         except Exception as e:
-            log.error("Notify user %s failed: %s", user.tg_id, e)
+            log.error("Notify user %s failed: %s", seller_user.tg_id, e)
 
     if action == "reject":
         await cq.message.edit_caption(

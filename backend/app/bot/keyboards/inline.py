@@ -20,7 +20,7 @@ def shop_picker(shops: list) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def seller_picker_list(sellers: list, saved_seller=None) -> InlineKeyboardMarkup:
+def seller_picker_list(sellers: list, shop_id: int = 0, saved_seller=None) -> InlineKeyboardMarkup:
     """Список продавцов + кнопка ввести вручную.
     Сохранённый продавец отмечен ✓.
     """
@@ -35,7 +35,7 @@ def seller_picker_list(sellers: list, saved_seller=None) -> InlineKeyboardMarkup
 
     builder.row(InlineKeyboardButton(
         text="✏️ Ввести ФИ вручную",
-        callback_data=f"new_sel:{sellers[0].shop_id if sellers else 0}",
+        callback_data=f"new_sel:{shop_id}",
     ))
     return builder.as_markup()
 

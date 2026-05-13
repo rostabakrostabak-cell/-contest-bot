@@ -87,7 +87,7 @@ async def pick_shop(cq: CallbackQuery, state: FSMContext, db_session, user) -> N
 
     await state.set_state(SubmitReceipt.pick_seller)
     await cq.message.edit_reply_markup(
-        reply_markup=seller_picker_list(sellers, saved_seller)
+        reply_markup=seller_picker_list(sellers, shop_id=shop_id, saved_seller=saved_seller)
     )
     await cq.answer()
 

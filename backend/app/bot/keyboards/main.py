@@ -10,21 +10,21 @@ settings = get_settings()
 def seller_main_menu(approved_count: int = 0) -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(
-        KeyboardButton(text="📋 Отправить чек"),
-        KeyboardButton(text=f"📋 Мои чеки ({approved_count})"),
+        KeyboardButton(text="Отправить чек"),
+        KeyboardButton(text=f"Мои чеки ({approved_count})"),
     )
     builder.row(
-        KeyboardButton(text="🏪 Рейтинг магазинов"),
-        KeyboardButton(text="🏆 Рейтинг продавцов"),
+        KeyboardButton(text="Рейтинг магазинов"),
+        KeyboardButton(text="Рейтинг продавцов"),
     )
     builder.row(
-        KeyboardButton(text="🧪 Колба"),
-        KeyboardButton(text="💬 Связаться с админом"),
+        KeyboardButton(text="Колба"),
+        KeyboardButton(text="Связаться с админом"),
     )
     return builder.as_markup(resize_keyboard=True)
 
 
 def admin_main_menu() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
-    builder.row(KeyboardButton(text="⚙️ Админ-панель"))
+    builder.row(KeyboardButton(text="Админ-панель"))
     return builder.as_markup(resize_keyboard=True)

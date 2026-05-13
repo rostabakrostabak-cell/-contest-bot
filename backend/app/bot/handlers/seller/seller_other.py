@@ -29,7 +29,7 @@ async def send_main_menu(message: Message, user: User, db_session) -> None:
     count = await db_session.execute(
         func.count(Receipt.id)
         .where(Receipt.user_id == user.id)
-        .where(text("receipts.status = 'approved'::receipt_status"))
+        .where(text("receipts.status = 'approved'"))
     )
     approved_count = count.scalar() or 0
     await message.answer(texts.main_menu, reply_markup=seller_main_menu(approved_count))
@@ -92,7 +92,7 @@ async def show_my_receipts(message: Message, user: User, db_session) -> None:
     rows = await db_session.execute(
         select(Receipt)
         .where(Receipt.user_id == user.id)
-        .where(text("receipts.status = 'approved'::receipt_status"))
+        .where(text("receipts.status = 'approved'"))
         .order_by(Receipt.submitted_at.desc())
     )
     approved = rows.scalars().all()

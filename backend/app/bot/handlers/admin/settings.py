@@ -63,13 +63,13 @@ async def menu_miniapp -> None:
     db = data["db_session"]
     day_count = (await db.execute(
         select(func.count(Receipt.id))
-        .where(text("receipts.status = 'approved'::receipt_status"))
-        .where(text("receipts.category = 'day'::seller_category"))
+        .where(text("receipts.status = 'approved'"))
+        .where(text("receipts.category = 'day'"))
     )).scalar() or 0
     night_count = (await db.execute(
         select(func.count(Receipt.id))
-        .where(text("receipts.status = 'approved'::receipt_status"))
-        .where(text("receipts.category = 'night'::seller_category"))
+        .where(text("receipts.status = 'approved'"))
+        .where(text("receipts.category = 'night'"))
     )).scalar() or 0
 
     text = (
@@ -203,11 +203,11 @@ async def export_excel -> None:
     )
 
     if export_type == "day":
-        query = query.where(text("receipts.category = 'day'::seller_category"))
+        query = query.where(text("receipts.category = 'day'"))
     elif export_type == "night":
-        query = query.where(text("receipts.category = 'night'::seller_category"))
+        query = query.where(text("receipts.category = 'night'"))
     elif export_type == "approved":
-        query = query.where(text("receipts.status = 'approved'::receipt_status"))
+        query = query.where(text("receipts.status = 'approved'"))
 
     rows = (await db.execute(query)).all()
 
@@ -282,7 +282,7 @@ async def menu_final -> None:
     for cat, label in [("day", "day"), ("night", "night")]:
         for status, slabel in [("approved", "approved"), ("pending", "pending"), ("rejected", "rejected")]:
             count = (await db.execute(
-                text(f"SELECT count(id) FROM receipts WHERE category = '{cat}'::seller_category AND status = '{status}'::receipt_status")
+                text(f"SELECT count(id) FROM receipts WHERE category = '{cat}' AND status = '{status}'")
             )).scalar() or 0
             stats[f"{label}_{slabel}"] = count
 
@@ -294,8 +294,8 @@ async def menu_final -> None:
                 SELECT s.full_name, count(r.id) as cnt
                 FROM receipts r
                 JOIN sellers s ON r.seller_id = s.id
-                WHERE r.status = 'approved'::receipt_status
-                AND r.category = '{cat}'::seller_category
+                WHERE r.status = 'approved'
+                AND r.category = '{cat}'
                 GROUP BY s.id, s.full_name
                 ORDER BY count(r.id) DESC
                 LIMIT 3

@@ -25,7 +25,7 @@ async def cmd_start(message: Message, user, db_session) -> None:
         await message.answer(texts.admin_menu, reply_markup=admin_inline_menu())
     else:
         count = await db_session.execute(
-            text("SELECT count(id) FROM receipts WHERE user_id = :uid AND status = 'approved'::receipt_status"),
+            text("SELECT count(id) FROM receipts WHERE user_id = :uid AND status = 'approved'"),
             {"uid": user.id}
         )
         approved_count = count.scalar() or 0

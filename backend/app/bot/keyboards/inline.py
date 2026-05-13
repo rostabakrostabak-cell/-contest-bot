@@ -27,9 +27,8 @@ def seller_picker_list(sellers: list, shop_id: int = 0, saved_seller=None) -> In
     builder = InlineKeyboardBuilder()
     for seller in sellers:
         icon = "✓ " if saved_seller and seller.id == saved_seller.id else ""
-        cat_icon = "☀️" if seller.category == "day" else "🌙"
         builder.row(InlineKeyboardButton(
-            text=f"{icon}{seller.full_name} {cat_icon}",
+            text=f"{icon}{seller.full_name}",
             callback_data=f"sel:{seller.id}",
         ))
 

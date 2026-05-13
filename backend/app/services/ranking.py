@@ -50,7 +50,7 @@ async def seller_progress(
             SELECT count(id)
             FROM receipts
             WHERE user_id = :uid
-            AND status = 'approved'::receipt_status
+            AND status = 'approved'
             AND category = CAST(:cat AS seller_category)
         """),
         {"uid": user_id, "cat": cat_val}
@@ -61,7 +61,7 @@ async def seller_progress(
         text("""
             SELECT user_id, count(id) as cnt
             FROM receipts
-            WHERE status = 'approved'::receipt_status
+            WHERE status = 'approved'
             AND category = CAST(:cat AS seller_category)
             GROUP BY user_id
             ORDER BY count(id) DESC
@@ -109,7 +109,7 @@ async def top_sellers_live(
             FROM receipts r
             JOIN sellers s ON r.seller_id = s.id
             JOIN shops sh ON r.shop_id = sh.id
-            WHERE r.status = 'approved'::receipt_status
+            WHERE r.status = 'approved'
             AND r.category = CAST(:cat AS seller_category)
             GROUP BY r.seller_id, s.full_name, s.category, sh.name
             ORDER BY count(r.id) DESC, min(r.submitted_at) ASC
@@ -148,7 +148,7 @@ async def top_shops_live(
                 count(r.id) as cnt
             FROM receipts r
             JOIN shops sh ON r.shop_id = sh.id
-            WHERE r.status = 'approved'::receipt_status
+            WHERE r.status = 'approved'
             AND r.category = CAST(:cat AS seller_category)
             GROUP BY r.shop_id, sh.name
             ORDER BY count(r.id) DESC
@@ -173,16 +173,16 @@ async def flask_counts(db: AsyncSession) -> tuple[int, int]:
         text("""
             SELECT count(id)
             FROM receipts
-            WHERE status = 'approved'::receipt_status
-            AND category = 'day'::seller_category
+            WHERE status = 'approved'
+            AND category = 'day'
         """)
     )
     night_row = await db.execute(
         text("""
             SELECT count(id)
             FROM receipts
-            WHERE status = 'approved'::receipt_status
-            AND category = 'night'::seller_category
+            WHERE status = 'approved'
+            AND category = 'night'
         """)
     )
     return day_row.scalar() or 0, night_row.scalar() or 0

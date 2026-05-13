@@ -111,14 +111,14 @@ async def pick_seller(cq: CallbackQuery, state: FSMContext, db_session, user) ->
         seller_id=seller.id,
         seller_name=seller.full_name,
         seller_shop_id=seller.shop_id,
-        category=seller.category.value,
+        is_new_seller=False,
     )
     user.last_seller_id = seller.id
     await db_session.commit()
 
-    await state.set_state(SubmitReceipt.enter_amount)
+    await state.set_state(SubmitReceipt.pick_category)
     await cq.message.edit_reply_markup(reply_markup=None)
-    await cq.message.answer(texts.enter_amount)
+    await cq.message.answer(texts.pick_category, reply_markup=category_picker())
     await cq.answer()
 
 
@@ -131,7 +131,7 @@ async def new_seller_start(cq: CallbackQuery, state: FSMContext, db_session, use
     log.info("current state=%s", await state.get_state())
     shop_id = int(cq.data.split(":")[1])
     log.info("shop_id=%s", shop_id)
-    await state.update_data(new_seller_shop_id=shop_id)
+    await state.update_data(new_seller_shop_id=shop_id, is_new_seller=True)
     await state.set_state(SubmitReceipt.enter_name)
     log.info("State now=%s", await state.get_state())
     await cq.message.edit_reply_markup(reply_markup=None)
@@ -167,10 +167,10 @@ async def enter_name(message: Message, state: FSMContext, db_session, user) -> N
             seller_id=existing.id,
             seller_name=existing.full_name,
             seller_shop_id=existing.shop_id,
-            category=existing.category.value,
+            is_new_seller=False,
         )
-        await state.set_state(SubmitReceipt.enter_amount)
-        await message.answer(texts.enter_amount)
+        await state.set_state(SubmitReceipt.pick_category)
+        await cq.message.answer(texts.pick_category, reply_markup=category_picker())
     else:
         await state.update_data(new_seller_name=name)
         await state.set_state(SubmitReceipt.pick_category)
@@ -184,41 +184,47 @@ async def enter_name(message: Message, state: FSMContext, db_session, user) -> N
 async def pick_category(cq: CallbackQuery, state: FSMContext, db_session, user) -> None:
     log.info("pick_category called")
     cat_str = cq.data.split(":")[1]
-    category = SellerCategory.DAY if cat_str == "day" else SellerCategory.NIGHT
+    category = "day" if cat_str == "day" else "night"
     sdata = await state.get_data()
 
-    name = sdata["new_seller_name"]
-    shop_id = sdata["new_seller_shop_id"]
+    is_new = sdata.get("is_new_seller", True)
 
-    seller = Seller(
-        shop_id=shop_id,
-        full_name=name,
-        category=category,
-        source=SellerSource.manual,
-    )
-    db_session.add(seller)
-    await db_session.flush()
-    await db_session.commit()
+    if is_new:
+        # Новый продавец - создаём запись
+        name = sdata["new_seller_name"]
+        shop_id = sdata["new_seller_shop_id"]
 
-    await state.update_data(
-        seller_id=seller.id,
-        seller_name=name,
-        seller_shop_id=shop_id,
-        category=category,
-    )
-    user.last_seller_id = seller.id
-    await db_session.commit()
-
-    shop = await db_session.get(Shop, shop_id)
-    cat_label = "Дневная" if category == SellerCategory.DAY else "Ночная"
-    try:
-        from app.bot.loader import bot
-        await bot.send_message(
-            chat_id=settings.admin_tg_id,
-            text=f"Новый продавец: {name}\n{shop.name if shop else ''}\n{cat_label}",
+        seller = Seller(
+            shop_id=shop_id,
+            full_name=name,
+            category=SellerCategory(category),
+            source=SellerSource.manual,
         )
-    except Exception:
-        pass
+        db_session.add(seller)
+        await db_session.flush()
+        await db_session.commit()
+
+        await state.update_data(
+            seller_id=seller.id,
+            seller_name=name,
+            seller_shop_id=shop_id,
+            category=category,
+        )
+        user.last_seller_id = seller.id
+        await db_session.commit()
+
+        shop = await db_session.get(Shop, shop_id)
+        try:
+            from app.bot.loader import bot
+            await bot.send_message(
+                chat_id=settings.admin_tg_id,
+                text=f"Новый продавец: {name}\n{shop.name if shop else ''}\n{'Дневная' if category == 'day' else 'Ночная'}",
+            )
+        except Exception:
+            pass
+    else:
+        # Существующий продавец
+        await state.update_data(category=category)
 
     await state.set_state(SubmitReceipt.enter_amount)
     await cq.message.edit_reply_markup(reply_markup=None)
